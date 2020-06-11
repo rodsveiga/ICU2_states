@@ -1,0 +1,15 @@
+city_SP_95
+Spain --- max: 2549.9933989 +- 1161.6089258665547 date: 2020-05-18 --- Colapse: capacity not informed
+Switzerland --- max: 2380.9413125 +- 993.6416225371394 date: 2020-05-10 --- Colapse: capacity not informed
+median --- max: 2393.0904479500005 +- 1092.4170961657724 date: 2020-05-15 --- Colapse: capacity not informed
+sub factor = 2.4721 --- fitted with non-SUS data
+-----
+scenarios fitted with city_SP_95 data until: 05-17
+-----------
+Spain --- colapse interval: capacity not informed
+-----
+Switzerland --- colapse interval: capacity not informed
+-----
+median --- colapse interval: capacity not informed
+-----
+Z = 1.96

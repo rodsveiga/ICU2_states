@@ -1,0 +1,5 @@
+state_SP_SUS
+Spain --- max: 5418.761827182957 +- 1191.3335046791474 date: 2020-06-04 --- Colapse: no colapse
+Germany --- max: 2708.602792128941 +- 762.5163804174631 date: 2020-05-15 --- Colapse: no colapse
+median --- max: 3688.9585296994096 +- 986.5030358907077 date: 2020-05-28 --- Colapse: no colapse
+sub factor = 2.534597597841899 --- fitted with non-SUS data
