@@ -1,0 +1,271 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import requests
+from argparse import ArgumentParser
+import os
+
+parser = ArgumentParser()
+
+parser.add_argument('--increment', dest= 'INCREM', default= False, type= bool,
+                    help= 'increment')
+
+args = parser.parse_args()
+
+path_data = 'data'
+path_output = 'results/dfs'
+path_input = 'results/dfs/csv'
+
+if not os.path.exists(path_data):
+    os.makedirs(path_data)
+
+if not os.path.exists(path_output):
+    os.makedirs(path_output)
+
+
+### Function to download data
+def download_df(url, filename):
+    with open(filename, 'wb') as f:
+        r = requests.get(url)
+        f.write(r.content)
+
+    return pd.read_csv(filename)
+
+### ICU prob
+df_age_ICU = pd.DataFrame(columns=['Age', 'ICU_prob'])
+df_age_ICU['Age'] = ['0-19', '20-44', '45-54', '55-64', '65-74', '75-84', '85+']
+df_age_ICU['ICU_prob'] = [0, 4.2, 10.4, 11.2, 18.8, 31, 29]
+
+ICU_prob = [0., 0., 0., 0., 0.042, 
+            0.042, 0.042, 0.042, 0.042, 0.104,
+            0.104, 0.112, 0.112, 0.188, 0.188,
+            0.31, 0.31, 0.29, 0.29]
+### ICU period
+T_ICU = 14
+### p SUS
+df_SUS = pd.read_csv('data/SUS_depend.csv', index_col= 'Estado')
+
+
+
+url = "https://brasil.io/dataset/covid19/caso/?format=csv"
+filename =  path_data + '/brazil_' + url.split("/")[-3] + '.csv'
+
+###############################################################################
+
+print('Downloading data')
+
+#df = download_df(url, filename)
+filename = 'data/brazil_covid19.csv'
+df = pd.read_csv(filename)
+
+
+df = df[ df['place_type'] == 'state']
+
+###############################################################################
+
+def ICU_samp(df, n, n_samp_AGE_max= 100, n_samp_AGE_min= 100, n_samp_ICU_max= 100, n_samp_ICU_min= 100):
+
+    df_samp = pd.DataFrame(columns= df['Age'])
+
+    for j in range(n_samp_AGE_max):
+
+    
+        samp = np.random.choice(df['Age'], 
+                                n, 
+                                p= list(df['AGE_prob']) )
+
+        unique, counts = np.unique(samp, return_counts= True)
+    
+        for l in range(len(unique)):
+            df_samp.loc[j, unique[l]] = counts[l]
+
+
+    df_samp = df_samp.fillna(0)
+
+    df['n_mean'] = list(df_samp.mean(axis= 0))
+    df['n_std']  = list(df_samp.std(axis =0))
+
+    df = df.set_index('Age')
+
+
+    for age in df.index:
+    
+        aux_ = []
+
+        for j in range(n_samp_ICU_max):    
+   
+            samp = np.random.uniform(size= int(df.loc[age]['n_mean']))  
+            samp_ICU = samp < df.loc[age]['ICU_prob']
+            aux_.append(samp_ICU.sum())
+
+
+        df.loc[age, 'n_mean_ICU']  = np.mean(aux_)
+        df.loc[age, 'n_std_ICU']   = np.std(aux_)
+        
+    df['n_std_ICU'] = np.sqrt( df['n_std']**2 +  df['n_std_ICU']**2)
+    
+    return df
+
+###############################################################################
+
+def daily_av(df_, date, SUS= True, p_SUS= 0.6278, n_samp_max= 100, n_samp_min= 100):
+
+    n_mean_    = []
+    n_std_     = []
+    n_mean_ICU_ = []
+    n_std_ICU_  = []
+    date_ = []
+
+    n_mean_.append(df_['n_mean'].sum())
+    n_std_.append(np.sqrt((df_['n_std']**2).sum()))
+    n_mean_ICU_.append(df_['n_mean_ICU'].sum())
+    n_std_ICU_.append(np.sqrt((df_['n_std_ICU']**2).sum()))
+    date_.append(date)
+
+    names = ['date', 'n_mean', 'n_std', 'n_mean_ICU', 'n_std_ICU']
+    df_ICU = pd.DataFrame(columns= names)
+
+    df_ICU['date'] = date_
+
+    
+    df_ICU['n_mean']     = n_mean_
+    df_ICU['n_std']      = n_std_
+    df_ICU['n_mean_ICU'] = n_mean_ICU_
+    df_ICU['n_std_ICU']  = n_std_ICU_
+
+    df_ICU = df_ICU.set_index(['date'])
+    df_ICU.index = pd.to_datetime(df_ICU.index)
+
+    if SUS:
+
+        aux_ = []
+
+        for j in range(n_samp_max):
+
+            samp = np.random.uniform(size= int(df_ICU['n_mean_ICU']))  
+            SUS_samp = samp <= p_SUS
+            aux_.append(SUS_samp.sum())
+
+        n_mean_ICU_SUS_ = []
+        n_std_ICU_SUS_ = []
+
+        n_mean_ICU_SUS_.append(np.mean(aux_))
+        n_std_ICU_SUS_.append(np.std(aux_))
+
+        df_ICU['n_mean_ICU_SUS'] =  n_mean_ICU_SUS_
+        df_ICU['n_std_ICU_SUS']  = n_std_ICU_SUS_
+
+        df_ICU['n_std_ICU_SUS'] = np.sqrt( df_ICU['n_std_ICU']**2 +  df_ICU['n_std_ICU_SUS']**2)
+
+    return df_ICU
+
+###############################################################################
+
+def correction(x, df_, T_ICU= 14):
+
+    df_.loc[df_.index[x] , 'n_mean_ICU_cor'] = 0.
+    df_.loc[df_.index[x], 'n_std_ICU_cor'] = 0.
+    
+    if x <= T_ICU:
+                   
+        df_.loc[df_.index[x], 'n_mean_ICU_cor'] = df_.loc[df_.index[x], 'n_mean_ICU']
+        df_.loc[df_.index[x], 'n_std_ICU_cor']  = df_.loc[df_.index[x], 'n_std_ICU']
+             
+    else:
+        
+        delta = df_.loc[df_.index[x], 'n_mean_ICU'] - df_.loc[df_.index[x - T_ICU], 'n_mean_ICU']
+        
+        df_.loc[df_.index[x], 'n_mean_ICU_cor'] = np.heaviside(delta, 0) * delta
+        df_.loc[df_.index[x], 'n_std_ICU_cor']  = np.sqrt(df_.loc[df_.index[x], 'n_std_ICU']**2 + df_.loc[df_.index[x - T_ICU], 'n_std_ICU']**2)
+
+
+
+
+###############################################################################
+
+states = ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO', 'MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA', 'MG', 'ES', 'RJ', 'SP', 'PR', 'SC', 'RS', 'MS',
+ 'MT', 'GO', 'DF']
+
+# Checar PB
+
+#states = ['PB']
+
+for name in states:
+
+    print(name)
+    
+    df2 = df[ df['state'] == name ]
+
+    df_I = df2.groupby('date')[['confirmed', 'deaths', 'estimated_population_2019', 'confirmed_per_100k_inhabitants', 'death_rate']].sum()
+    df_I = df_I[ df_I['confirmed'] > 0]
+    df_I.index = pd.to_datetime(df_I.index)
+
+    fit_until = df_I.index[-1].strftime('%m-%d')
+
+    file = 'data/pop_age_str_IBGE_2020_' + name + '.csv'
+    df_age = pd.read_csv(file)
+    df_age.loc[0, 'Age'] = '00-04'
+    df_age.loc[1, 'Age'] = '05-09'
+    df_age['AGE_prob'] = df_age['Total'] / df_age['Total'].sum().item()
+    pop0 = df_age['Total'].sum().item()
+    df_age['ICU_prob'] = ICU_prob   
+
+    ########
+    p_SUS = df_SUS.loc[name].item()
+    ########
+
+    if not args.INCREM:
+
+        column_names = ['n_mean', 'n_std', 'n_mean_ICU', 'n_std_ICU']
+        DF2 = pd.DataFrame(columns= column_names)
+
+        for j in range(len(df_I)):
+
+           
+            
+            df1 = ICU_samp(df= df_age.reset_index(), 
+                        n= int(df_I.iloc[j][0]), 
+                        n_samp_AGE_max= 100, n_samp_AGE_min= 100,
+                        n_samp_ICU_max= 100, n_samp_ICU_min= 100)
+
+            DF1 = daily_av(df1, date= df_I.index[j], SUS= True, p_SUS= p_SUS, n_samp_max= 100, n_samp_min= 100)
+
+            DF2 = DF2.append(DF1)
+
+        for k in range(len(DF2)):
+            correction(k, DF2, T_ICU= 14)
+
+        file1 = 'results/dfs/ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
+
+        DF2 = DF2.join(df_I)
+
+        DF2.to_csv(file1)
+
+    else:
+
+        fit_until2 = df_I.index[-2].strftime('%m-%d')
+
+        file2 = 'results/dfs/ICU_' + 'state_' + name + '_fit_until_' + fit_until2 + '.csv'
+
+        DF_load = pd.read_csv(file2)
+
+        DF_NEW = ICU_samp(df= df_age.reset_index(), 
+                          n= int(df_I.iloc[-1][0]), 
+                          n_samp_AGE_max= 100, n_samp_AGE_min= 100,
+                          n_samp_ICU_max= 100, n_samp_ICU_min= 100)
+
+        DF_NEW1 = daily_av(DF_NEW, date= df_I.index[-1], SUS= True, p_SUS= p_SUS, n_samp_max= 100, n_samp_min= 100)
+
+        DF2_NEW = DF_load.append(DF_NEW1)
+
+        correction(len(DF2_NEW), DF2_NEW, T_ICU= 14)
+
+        file2 = 'results/dfs/df_ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
+        DF2_NEW.to_pickle(file2)
+
+        
+
+
+
+
+
