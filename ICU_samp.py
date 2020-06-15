@@ -24,12 +24,16 @@ if not os.path.exists(path_output):
 
 
 ### Function to download data
-def download_df(url, filename):
+def download_df(url, filename, sep= False):
     with open(filename, 'wb') as f:
         r = requests.get(url)
         f.write(r.content)
 
-    return pd.read_csv(filename)
+    if sep:
+        out = pd.read_csv(filename, sep= ';')
+    else:
+        out = pd.read_csv(filename)
+    return out
 
 ### ICU prob
 df_age_ICU = pd.DataFrame(columns=['Age', 'ICU_prob'])
@@ -54,12 +58,23 @@ filename =  path_data + '/brazil_' + url.split("/")[-3] + '.csv'
 
 print('Downloading data')
 
-#df = download_df(url, filename)
-filename = 'data/brazil_covid19.csv'
-df = pd.read_csv(filename)
+df = download_df(url, filename)
+#filename = 'data/brazil_covid19.csv'
+#df = pd.read_csv(filename)
 
 
 df = df[ df['place_type'] == 'state']
+
+###############################################################################
+
+url2 = 'https://covid-insumos.saude.gov.br/paineis/insumos/lista_csv_painel.php?output=csv'
+filename2 = path_data + '/brazil_covid_insumos.csv'
+
+df_covidBR__ = download_df(url2, filename2, sep= True)
+
+df_covidBR_ = df_covidBR__[['uf', 'Leitos UTI adulto', 'UTI adulto SUS', 'Uti adulto não SUS']]
+
+df_covidBR = df_covidBR_.set_index('uf')
 
 ###############################################################################
 
@@ -186,6 +201,9 @@ def correction(x, df_, T_ICU= 14):
 states = ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO', 'MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA', 'MG', 'ES', 'RJ', 'SP', 'PR', 'SC', 'RS', 'MS',
  'MT', 'GO', 'DF']
 
+column_names = ['n_mean', 'n_std', 'n_mean_ICU', 'n_std_ICU', 'uf']
+DF3 = pd.DataFrame(columns= column_names)
+
 
 for name in states:
 
@@ -257,8 +275,37 @@ for name in states:
 
         correction(len(DF2_NEW), DF2_NEW, T_ICU= 14)
 
-        file2 = 'results/dfs/df_ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
-        DF2_NEW.to_pickle(file2)
+        #file2 = 'results/dfs/df_ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
+        #DF2_NEW.to_pickle(file2)
+
+
+        ##################################
+        aux_ = []
+        for l in range(len(DF2_NEW)):
+            aux_.append(name)
+
+        DF2_NEW['uf'] = aux_
+
+        DF3 = DF3.append(DF2_NEW[-1])
+
+
+if args.INCREM:
+
+    DF4 = DF3.set_index('uf')
+    DF5 = DF4.join(df_covidBR)
+
+    DF6 = DF5.reset_index()
+
+    file__ = 'results/dfs/df_ICU_' + 'states_' + 'fit_until_' + fit_until + '.csv'
+    DF6.to_pickle(file__)
+
+
+
+
+
+
+
+
 
         
 
