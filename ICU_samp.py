@@ -260,6 +260,9 @@ for name in states:
 
         fit_until2 = df_I.index[-2].strftime('%m-%d')
 
+        if name == 'MG':
+            fit_until2 = '06-15'
+
         file2 = 'results/dfs/ICU_' + 'state_' + name + '_fit_until_' + fit_until2 + '.csv'
 
         DF_load = pd.read_csv(file2)
@@ -273,7 +276,7 @@ for name in states:
 
         DF2_NEW = DF_load.append(DF_NEW1)
 
-        correction(len(DF2_NEW), DF2_NEW, T_ICU= 14)
+        correction(len(DF2_NEW) - 1, DF2_NEW, T_ICU= 14)
 
         #file2 = 'results/dfs/df_ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
         #DF2_NEW.to_pickle(file2)
@@ -286,7 +289,7 @@ for name in states:
 
         DF2_NEW['uf'] = aux_
 
-        DF3 = DF3.append(DF2_NEW[-1])
+        DF3 = DF3.append(DF2_NEW.iloc[-1])
 
 
 if args.INCREM:
@@ -297,7 +300,7 @@ if args.INCREM:
     DF6 = DF5.reset_index()
 
     file__ = 'results/dfs/df_ICU_' + 'states_' + 'fit_until_' + fit_until + '.csv'
-    DF6.to_pickle(file__)
+    DF6.to_csv(file__)
 
 
 
