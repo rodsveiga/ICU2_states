@@ -5,10 +5,15 @@ import requests
 from argparse import ArgumentParser
 import os
 
+
 parser = ArgumentParser()
 
 parser.add_argument('--increment', dest= 'INCREM', default= False, type= bool,
                     help= 'increment')
+
+
+parser.add_argument('--total', dest= 'TOTAL', default= False, type= bool,
+                    help= 'total')
 
 args = parser.parse_args()
 
@@ -58,9 +63,10 @@ filename =  path_data + '/brazil_' + url.split("/")[-3] + '.csv'
 
 print('Downloading data')
 
-df = download_df(url, filename)
-#filename = 'data/brazil_covid19.csv'
-#df = pd.read_csv(filename)
+#df = download_df(url, filename)
+
+filename = 'data/covid19-89727c3289f24936818233dabcff136b.csv'
+df = pd.read_csv(filename)
 
 
 df = df[ df['place_type'] == 'state']
@@ -201,6 +207,8 @@ def correction(x, df_, T_ICU= 14):
 states = ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO', 'MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA', 'MG', 'ES', 'RJ', 'SP', 'PR', 'SC', 'RS', 'MS',
  'MT', 'GO', 'DF']
 
+#states = ['RO', 'AC']
+
 column_names = ['n_mean', 'n_std', 'n_mean_ICU', 'n_std_ICU', 'uf']
 DF3 = pd.DataFrame(columns= column_names)
 
@@ -211,8 +219,8 @@ for name in states:
     
     df2 = df[ df['state'] == name ]
 
-    df_I = df2.groupby('date')[['confirmed', 'deaths', 'estimated_population_2019', 'confirmed_per_100k_inhabitants', 'death_rate']].sum()
-    df_I = df_I[ df_I['confirmed'] > 0]
+    df_I = df2.groupby('date')[['last_available_confirmed', 'last_available_deaths', 'estimated_population_2019', 'last_available_confirmed_per_100k_inhabitants', 'last_available_death_rate']].sum()
+    df_I = df_I[ df_I['last_available_confirmed'] > 0]
     df_I.index = pd.to_datetime(df_I.index)
 
     fit_until = df_I.index[-1].strftime('%m-%d')
@@ -250,7 +258,8 @@ for name in states:
         for k in range(len(DF2)):
             correction(k, DF2, T_ICU= 14)
 
-        file1 = 'results/dfs/ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
+        #file1 = 'results/dfs/ICU_' + 'state_' + name + '_fit_until_' + fit_until + '.csv'
+        file1 = 'results/dfs/ICU_' + 'state_' + name + '.csv'
 
         DF2 = DF2.join(df_I)
 
@@ -301,6 +310,41 @@ if args.INCREM:
 
     file__ = 'results/dfs/df_ICU_' + 'states_' + 'fit_until_' + fit_until + '.csv'
     DF6.to_csv(file__)
+
+
+###########################
+
+aux_uf_ = []
+DF4 = pd.DataFrame(columns= DF2.columns.values)
+
+for name in states:
+    file__ = 'results/dfs/ICU_' + 'state_' + name + '.csv'
+
+    df__ = pd.read_csv(file__)
+    df__ = df__.rename(columns={'Unnamed: 0':'date'})
+
+    DF4 = DF4.append(df__.iloc[-1])
+
+    aux_uf_.append(name)
+
+DF4['uf'] = aux_uf_
+
+DF4 =  DF4.set_index('uf')
+
+
+DF5 = DF4.join(df_covidBR)
+
+file5 = 'results/dfs/df_ICU_' + 'states_ICU.csv'
+DF5.to_csv(file5)
+ 
+
+
+
+
+###########################
+
+
+
 
 
 
